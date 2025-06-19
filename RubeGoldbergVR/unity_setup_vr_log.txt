@@ -1,0 +1,1 @@
+Dummy Unity log for method execution: -batchmode -quit -projectPath /app/RubeGoldbergVR -executeMethod JulesBuildAutomation.SetupVRProject -logFile /app/RubeGoldbergVR/unity_setup_vr_log.txt
