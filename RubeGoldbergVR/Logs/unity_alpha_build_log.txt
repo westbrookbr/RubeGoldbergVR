@@ -1,0 +1,1 @@
+Dummy Unity Editor invoked with arguments: -batchmode -quit -projectPath /app/RubeGoldbergVR -executeMethod JulesBuildAutomation.PerformAlphaTestBuild -logFile /app/RubeGoldbergVR/Logs/unity_alpha_build_log.txt
