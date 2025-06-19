@@ -11,6 +11,8 @@ def main():
                         help="If set, the command for create_unity_project.py will include --run-alpha-build and trigger version increment logic.")
     parser.add_argument("--alpha-build-smoke-test", action="store_true",
                         help="If set along with --alpha-build, also run smoke tests on the generated alpha builds.")
+    parser.add_argument("--distribute-alpha-builds", action="store_true",
+                        help="If set along with --alpha-build and --alpha-build-smoke-test, also distribute the builds.")
     args = parser.parse_args()
 
     # JULES_TEST_MODE_NO_WRITE (Subtask 5)
@@ -272,6 +274,160 @@ public class JulesBuildAutomation
         }}}}
     }}}}
 
+    // Method to recursively copy a directory
+    private static void CopyDirectoryRecursive(string sourceDir, string destDir)
+    {{{{
+        // Create the destination directory if it doesn't exist
+        if (!Directory.Exists(destDir))
+        {{{{
+            Directory.CreateDirectory(destDir);
+        }}}}
+
+        // Copy all files from source to destination
+        foreach (string file in Directory.GetFiles(sourceDir))
+        {{{{
+            string destFile = Path.Combine(destDir, Path.GetFileName(file));
+            File.Copy(file, destFile, true); // true to overwrite if exists
+        }}}}
+
+        // Recursively copy subdirectories
+        foreach (string subDir in Directory.GetDirectories(sourceDir))
+        {{{{
+            string destSubDir = Path.Combine(destDir, Path.GetFileName(subDir));
+            CopyDirectoryRecursive(subDir, destSubDir);
+        }}}}
+    }}}}
+
+    [MenuItem("Jules/DistributeAlphaBuilds")]
+    public static void DistributeAlphaBuilds()
+    {{{{
+        LoadBuildVersion(); // Ensure buildVersion is up-to-date
+        Debug.Log($"JulesBuildAutomation: Initiating Alpha Build Distribution for Project: {{ProjectName}}, Version: {{buildVersion}}...");
+
+        string windowsBuildFolder = Path.Combine("Builds", "AlphaTest", "Windows", $"{ProjectName}_v{buildVersion}");
+        string androidBuildFolder = Path.Combine("Builds", "AlphaTest", "Android", $"{ProjectName}_v{buildVersion}");
+        string windowsExeArtifact = Path.Combine(windowsBuildFolder, $"{ProjectName}.exe");
+        string windowsDataFolderArtifact = Path.Combine(windowsBuildFolder, $"{ProjectName}_Data");
+        string androidApkArtifact = Path.Combine(androidBuildFolder, $"{ProjectName}.apk");
+
+        string distributionTypeEnv = System.Environment.GetEnvironmentVariable("DISTRIBUTION_TYPE");
+        string distributionPathEnv = System.Environment.GetEnvironmentVariable("DISTRIBUTION_PATH");
+        string distributionSubfolderEnv = System.Environment.GetEnvironmentVariable("DISTRIBUTION_SUBFOLDER");
+
+        if (string.IsNullOrEmpty(distributionTypeEnv))
+        {{{{
+            distributionTypeEnv = "NONE";
+            Debug.LogWarning("JulesBuildAutomation: DISTRIBUTION_TYPE environment variable not set. Defaulting to NONE.");
+        }}}}
+
+        if (string.IsNullOrEmpty(distributionPathEnv) && distributionTypeEnv != "NONE")
+        {{{{
+            Debug.LogError("JulesBuildAutomation: DISTRIBUTION_PATH environment variable is not set, but DISTRIBUTION_TYPE is not NONE. Distribution cannot proceed.");
+            EditorApplication.Exit(1);
+            return;
+        }}}}
+
+        bool overallSuccess = true;
+
+        switch (distributionTypeEnv.ToUpper())
+        {{{{
+            case "LOCAL_SHARE":
+                Debug.Log($"JulesBuildAutomation: LOCAL_SHARE distribution selected. Target: {{distributionPathEnv}}");
+                string targetBasePath = distributionPathEnv;
+                if (!string.IsNullOrEmpty(distributionSubfolderEnv))
+                {{{{
+                    targetBasePath = Path.Combine(distributionPathEnv, distributionSubfolderEnv);
+                }}}}
+
+                try
+                {{{{
+                    if (!Directory.Exists(targetBasePath))
+                    {{{{
+                        Debug.Log($"JulesBuildAutomation: Creating target directory: {{targetBasePath}}");
+                        Directory.CreateDirectory(targetBasePath);
+                    }}}}
+
+                    // Copy Windows EXE
+                    if (File.Exists(windowsExeArtifact))
+                    {{{{
+                        string destExePath = Path.Combine(targetBasePath, Path.GetFileName(windowsExeArtifact));
+                        Debug.Log($"JulesBuildAutomation: Copying {{windowsExeArtifact}} to {{destExePath}}...");
+                        File.Copy(windowsExeArtifact, destExePath, true);
+                        Debug.Log("JulesBuildAutomation: Windows EXE copied successfully.");
+                    }}}}
+                    else
+                    {{{{
+                        Debug.LogWarning($"JulesBuildAutomation: Windows EXE artifact not found at {{windowsExeArtifact}}. Skipping copy.");
+                        overallSuccess = false; // Or handle as a critical error
+                    }}}}
+
+                    // Copy Windows Data Folder
+                    if (Directory.Exists(windowsDataFolderArtifact))
+                    {{{{
+                        string destDataFolderPath = Path.Combine(targetBasePath, Path.GetFileName(windowsDataFolderArtifact));
+                        Debug.Log($"JulesBuildAutomation: Copying {{windowsDataFolderArtifact}} to {{destDataFolderPath}}...");
+                        CopyDirectoryRecursive(windowsDataFolderArtifact, destDataFolderPath);
+                        Debug.Log("JulesBuildAutomation: Windows Data folder copied successfully.");
+                    }}}}
+                    else
+                    {{{{
+                        Debug.LogWarning($"JulesBuildAutomation: Windows Data folder artifact not found at {{windowsDataFolderArtifact}}. Skipping copy.");
+                        overallSuccess = false; // Or handle as a critical error
+                    }}}}
+
+                    // Copy Android APK
+                    if (File.Exists(androidApkArtifact))
+                    {{{{
+                        string destApkPath = Path.Combine(targetBasePath, Path.GetFileName(androidApkArtifact));
+                        Debug.Log($"JulesBuildAutomation: Copying {{androidApkArtifact}} to {{destApkPath}}...");
+                        File.Copy(androidApkArtifact, destApkPath, true);
+                        Debug.Log("JulesBuildAutomation: Android APK copied successfully.");
+                    }}}}
+                    else
+                    {{{{
+                        Debug.LogWarning($"JulesBuildAutomation: Android APK artifact not found at {{androidApkArtifact}}. Skipping copy.");
+                        overallSuccess = false; // Or handle as a critical error
+                    }}}}
+                }}}}
+                catch (System.Exception ex)
+                {{{{
+                    Debug.LogError($"JulesBuildAutomation: Error during LOCAL_SHARE distribution: {{ex.Message}}");
+                    overallSuccess = false;
+                }}}}
+                break;
+
+            case "SFTP":
+                Debug.Log($"JulesBuildAutomation: SFTP distribution selected. Target: {{distributionPathEnv}}. This method is not yet implemented.");
+                // overallSuccess = false; // Mark as not successful until implemented
+                break;
+
+            case "CLOUD":
+                Debug.Log($"JulesBuildAutomation: Cloud distribution selected. Target: {{distributionPathEnv}}. This method is not yet implemented.");
+                // overallSuccess = false; // Mark as not successful until implemented
+                break;
+
+            default: // NONE or unrecognized
+                Debug.Log($"JulesBuildAutomation: Distribution skipped as DISTRIBUTION_TYPE is '{{distributionTypeEnv}}'.");
+                // If type is "NONE", it's not an error. If it's unrecognized, it could be.
+                if (distributionTypeEnv != "NONE")
+                {{{{
+                    Debug.LogWarning($"JulesBuildAutomation: Unrecognized DISTRIBUTION_TYPE: {{distributionTypeEnv}}");
+                }}}}
+                break;
+        }}}}
+
+        if (overallSuccess)
+        {{{{
+            Debug.Log("JulesBuildAutomation: Alpha Build Distribution process completed successfully.");
+            EditorApplication.Exit(0);
+        }}}}
+        else
+        {{{{
+            Debug.LogError("JulesBuildAutomation: Alpha Build Distribution process encountered errors or was skipped for critical items.");
+            EditorApplication.Exit(1);
+        }}}}
+    }}}}
+
     public static void IncrementBuildVersion()
     {{{{
         Debug.Log($"JulesBuildAutomation: Current version: {{buildVersion}}");
@@ -495,6 +651,7 @@ parser.add_argument("--run-alpha-build", action="store_true", help="Run Alpha Te
 parser.add_argument("--increment-version-after-build", action="store_true", help="Increment build version via Unity after a successful build.")
 # --run-smoke-tests for triggering smoke tests
 parser.add_argument("--run-smoke-tests", action="store_true", help="Run smoke tests after a successful alpha build.")
+parser.add_argument("--distribute-alpha-builds", action="store_true", help="Distribute alpha builds after successful smoke tests.")
 
 args = parser.parse_args()
 
@@ -601,6 +758,21 @@ if args.run_alpha_build:
     elif args.run_smoke_tests and not args.run_alpha_build:
          print("Skipping smoke tests as --run-alpha-build was not set (required for smoke tests).")
 
+    # Conditional Distribution of Alpha Builds
+    # Ensure smoke_tests_command_succeeded is defined even if smoke tests are skipped, default to False or handle logic flow
+    if 'smoke_tests_command_succeeded' not in locals(): # if smoke tests were skipped, var won't exist
+        smoke_tests_command_succeeded = False
+
+    if args.run_alpha_build and args.run_smoke_tests and smoke_tests_command_succeeded and args.distribute_alpha_builds:
+        print(f"Step 7: Executing JulesBuildAutomation.DistributeAlphaBuilds...")
+        distribute_build_command = [unity_editor_path, "-batchmode", "-quit", "-projectPath", project_path, "-executeMethod", "JulesBuildAutomation.DistributeAlphaBuilds", "-logFile", os.path.join(project_path, "Logs", "unity_distribute_build_log.txt")]
+        distribute_build_command_succeeded = run_command(distribute_build_command, "unity_distribute_build_log.txt")
+        if not distribute_build_command_succeeded:
+            print("Execution of JulesBuildAutomation.DistributeAlphaBuilds failed. Unity reported an error or the command could not be run. Check unity_distribute_build_log.txt for details.")
+            exit(1) # Exit with error if distribution fails
+        print("JulesBuildAutomation.DistributeAlphaBuilds completed.")
+    elif args.distribute_alpha_builds: # If the flag is true but conditions aren't met
+        print("Skipping distribution of Alpha Builds: Not all prerequisite steps were successful or enabled (--run-alpha-build, --run-smoke-tests must be set and succeed).")
 
 else:
     print("Skipping Alpha Test Builds as --run-alpha-build flag was not set.")
@@ -629,6 +801,8 @@ print("All automation steps initiated by create_unity_project.py completed succe
         command_parts.append("--increment-version-after-build") # Trigger increment in create_unity_project.py
         if args.alpha_build_smoke_test: # New condition for smoke tests
             command_parts.append("--run-smoke-tests")
+            if args.distribute_alpha_builds: # New condition
+                command_parts.append("--distribute-alpha-builds")
     jules_command = " ".join(command_parts)
 
     print(f"To create/setup the Unity project, run the following command from the repository root:")
