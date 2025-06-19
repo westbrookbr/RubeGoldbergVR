@@ -44,16 +44,16 @@ public class JulesBuildAutomation
         string sampleScenePath = "Assets/Scenes/SampleScene.unity";
         if (!File.Exists(sampleScenePath))
         {
-            Debug.LogError($"Jules: Scene '{{sampleScenePath}}' not found for build. Please ensure it exists.");
+            Debug.LogError($"Jules: Scene '{sampleScenePath}' not found for build. Please ensure it exists.");
             EditorApplication.Exit(1);
             return;
         }
 
         BuildPlayerOptions buildOptions = new BuildPlayerOptions();
-        buildOptions.scenes = new[] {{ sampleScenePath }};
+        buildOptions.scenes = new[] { sampleScenePath };
 
-        string windowsBuildPath = $"Builds/AlphaTest/Windows/{{ProjectName}}.exe";
-        string androidBuildPath = $"Builds/AlphaTest/Android/{{ProjectName}}.apk";
+        string windowsBuildPath = $"Builds/AlphaTest/Windows/{ProjectName}.exe";
+        string androidBuildPath = $"Builds/AlphaTest/Android/{ProjectName}.apk";
 
         Directory.CreateDirectory(Path.GetDirectoryName(windowsBuildPath));
         Directory.CreateDirectory(Path.GetDirectoryName(androidBuildPath));
@@ -69,11 +69,11 @@ public class JulesBuildAutomation
 
         if (summaryWindows.result == BuildResult.Succeeded)
         {
-            Debug.Log($"Jules: Windows Alpha Test Build succeeded: {{summaryWindows.totalSize}} bytes at {{windowsBuildPath}}");
+            Debug.Log($"Jules: Windows Alpha Test Build succeeded: {summaryWindows.totalSize} bytes at {windowsBuildPath}");
         }
         else if (summaryWindows.result == BuildResult.Failed)
         {
-            Debug.LogError($"Jules: Windows Alpha Test Build failed: {{summaryWindows.totalErrors}} errors");
+            Debug.LogError($"Jules: Windows Alpha Test Build failed: {summaryWindows.totalErrors} errors");
             EditorApplication.Exit(1);
             return;
         }
@@ -95,11 +95,11 @@ public class JulesBuildAutomation
 
         if (summaryAndroid.result == BuildResult.Succeeded)
         {
-            Debug.Log($"Jules: Android Alpha Test Build succeeded: {{summaryAndroid.totalSize}} bytes at {{androidBuildPath}}");
+            Debug.Log($"Jules: Android Alpha Test Build succeeded: {summaryAndroid.totalSize} bytes at {androidBuildPath}");
         }
         else if (summaryAndroid.result == BuildResult.Failed)
         {
-            Debug.LogError($"Jules: Android Alpha Test Build failed: {{summaryAndroid.totalErrors}} errors");
+            Debug.LogError($"Jules: Android Alpha Test Build failed: {summaryAndroid.totalErrors} errors");
             EditorApplication.Exit(1);
             return;
         }
@@ -135,7 +135,7 @@ public class JulesBuildAutomation
         if (packageIndex < xrPackages.Count)
         {
             string packageId = xrPackages[packageIndex];
-            Debug.Log($"Jules: Attempting to install package: {{packageId}}");
+            Debug.Log($"Jules: Attempting to install package: {packageId}");
             currentAddRequest = Client.Add(packageId);
             packageIndex++;
         }
@@ -164,7 +164,7 @@ public class JulesBuildAutomation
 
     private static void ConfigureBuildTargetXRSettings(BuildTargetGroup buildTargetGroup, BuildTarget buildTarget, string tabName)
     {
-        Debug.Log($"Jules: Configuring XR for {{tabName}}...");
+        Debug.Log($"Jules: Configuring XR for {tabName}...");
 
         XRGeneralSettingsForEditor generalSettings;
         string settingsKey = XRGeneralSettingsForEditor.k_SettingsKey;
@@ -175,7 +175,7 @@ public class JulesBuildAutomation
             // If not found, create new settings
             generalSettings = ScriptableObject.CreateInstance<XRGeneralSettingsForEditor>();
             EditorBuildSettings.AddConfigObject(settingsKey, generalSettings, true); // Add it to EditorBuildSettings
-            Debug.Log($"Jules: Created new XRGeneralSettingsForEditor for {{tabName}}.");
+            Debug.Log($"Jules: Created new XRGeneralSettingsForEditor for {tabName}.");
         }
 
         // Ensure the XRGeneralSettingsForEditor instance for this build target group is correctly set
@@ -192,7 +192,7 @@ public class JulesBuildAutomation
         {
             generalSettings.Manager = ScriptableObject.CreateInstance<XRManagerSettings>();
             EditorUtility.SetDirty(generalSettings); // Mark generalSettings dirty because its Manager changed
-            Debug.Log($"Jules: Created new XRManagerSettings for {{tabName}}.");
+            Debug.Log($"Jules: Created new XRManagerSettings for {tabName}.");
         }
 
         // Add OpenXR Loader if not already present in the list of configured loaders
@@ -217,14 +217,14 @@ public class JulesBuildAutomation
             // No need to explicitly add to activeLoaders here, XRManagerSettings handles activation
             // based on the presence in 'loaders' list.
             EditorUtility.SetDirty(generalSettings.Manager); // Mark Manager dirty since its loaders list changed
-            Debug.Log($"Jules: Added OpenXR Loader to {{tabName}} XR General Settings.");
+            Debug.Log($"Jules: Added OpenXR Loader to {tabName} XR General Settings.");
         }
 
         // Configure OpenXR settings (e.g., add interaction profiles)
         OpenXRSettings openXRSettings = OpenXRSettings.GetForBuildTargetGroup(buildTargetGroup);
         if (openXRSettings != null)
         {{
-            Debug.Log($"Jules: Configuring {{tabName}} OpenXR settings...");
+            Debug.Log($"Jules: Configuring {tabName} OpenXR settings...");
 
             // Enable common interaction profiles by enabling relevant features
             // These feature IDs are specific to the OpenXR package and its extensions.
@@ -236,7 +236,7 @@ public class JulesBuildAutomation
         }}
         else
         {{
-            Debug.LogWarning($"Jules: OpenXRSettings not found for {{tabName}}. This might indicate a problem with package installation or XR management setup.");
+            Debug.LogWarning($"Jules: OpenXRSettings not found for {tabName}. This might indicate a problem with package installation or XR management setup.");
         }}
 
         EditorUtility.SetDirty(generalSettings); // Mark the main settings object dirty
@@ -251,14 +251,14 @@ public class JulesBuildAutomation
                 if (!feature.enabled)
                 {
                     feature.enabled = true;
-                    Debug.Log($"Jules: Enabled OpenXR feature: {{feature.name}} (ID: {{feature.featureId}}) for {{settings.buildTargetGroup}}.");
+                    Debug.Log($"Jules: Enabled OpenXR feature: {feature.name} (ID: {feature.featureId}) for {settings.buildTargetGroup}.");
                 } else {
-                    Debug.Log($"Jules: OpenXR feature: {{feature.name}} (ID: {{feature.featureId}}) already enabled for {{settings.buildTargetGroup}}.");
+                    Debug.Log($"Jules: OpenXR feature: {feature.name} (ID: {feature.featureId}) already enabled for {settings.buildTargetGroup}.");
                 }
                 return;
             }
         }
-        Debug.LogWarning($"Jules: OpenXR feature with ID '{{featureId}}' not found for {{settings.buildTargetGroup}}. Ensure the relevant package/feature set is installed.");
+        Debug.LogWarning($"Jules: OpenXR feature with ID '{featureId}' not found for {settings.buildTargetGroup}. Ensure the relevant package/feature set is installed.");
     }}
 
     private static void CreateBasicVRSceneElements()
@@ -276,12 +276,12 @@ public class JulesBuildAutomation
         {{
             activeScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             EditorSceneManager.SaveScene(activeScene, sampleScenePath);
-            Debug.Log($"Jules: Created new scene at: {{sampleScenePath}}");
+            Debug.Log($"Jules: Created new scene at: {sampleScenePath}");
         }}
         else
         {{
             activeScene = EditorSceneManager.OpenScene(sampleScenePath);
-            Debug.Log($"Jules: Opened existing scene at: {{sampleScenePath}}");
+            Debug.Log($"Jules: Opened existing scene at: {sampleScenePath}");
         }}
 
         // Remove existing Main Camera if present
@@ -351,12 +351,12 @@ public class JulesBuildAutomation
         if (isLeftHand)
         {{
             controllerGO.AddComponent<UnityEngine.XR.Interaction.Toolkit.XRRayInteractor>(); // For ray-based interaction
-            Debug.Log($"Jules: Added {{name}} with XRRayInteractor.");
+            Debug.Log($"Jules: Added {name} with XRRayInteractor.");
         }}
         else
         {{
             controllerGO.AddComponent<UnityEngine.XR.Interaction.Toolkit.XRDirectInteractor>(); // For direct grab interaction
-            Debug.Log($"Jules: Added {{name}} with XRDirectInteractor.");
+            Debug.Log($"Jules: Added {name} with XRDirectInteractor.");
         }}
 
         // Add a simple visualizer (e.g., a sphere) for the controller
