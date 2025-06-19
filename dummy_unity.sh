@@ -43,10 +43,7 @@ if [[ "$@" == *"-createProject"* ]]; then
         echo "Dummy Unity: Creating project at $PROJECT_TO_CREATE"
         mkdir -p "$PROJECT_TO_CREATE/Assets/Editor"
         mkdir -p "$PROJECT_TO_CREATE/Logs" # Also create Logs directory here
-        # Create a dummy Library folder to simulate Unity project structure
-        mkdir -p "$PROJECT_TO_CREATE/Library"
-        # Create a dummy ProjectSettings folder
-        mkdir -p "$PROJECT_TO_CREATE/ProjectSettings"
+        # Removed Library and ProjectSettings folder creation to reduce file operations
     fi
 fi
 
