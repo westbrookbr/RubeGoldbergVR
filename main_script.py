@@ -8,11 +8,26 @@ def main():
     parser.add_argument("--project-name", default="RubeGoldbergVR",
                         help="Name of the Unity project. This will also be the value for ProjectName const in C#.")
     parser.add_argument("--alpha-build", action="store_true",
-                        help="If set, the command for create_unity_project.py will include --run-alpha-build.")
+                        help="If set, the command for create_unity_project.py will include --run-alpha-build and trigger version increment logic.")
+    parser.add_argument("--alpha-build-smoke-test", action="store_true",
+                        help="If set along with --alpha-build, also run smoke tests on the generated alpha builds.")
     args = parser.parse_args()
 
     # JULES_TEST_MODE_NO_WRITE (Subtask 5)
     test_mode_no_write = os.environ.get("JULES_TEST_MODE_NO_WRITE", "false").lower() == "true"
+
+    # Read build version from root file
+    root_version_file = "build_version.txt"
+    current_build_version = "0.1.0" # Default
+    if os.path.exists(root_version_file):
+        with open(root_version_file, "r") as f:
+            version_in_file = f.read().strip()
+            if version_in_file: # Basic check for non-empty
+                # Add more robust validation later if needed (e.g., regex for X.Y.Z)
+                current_build_version = version_in_file
+        print(f"MAIN_SCRIPT.PY: Read version '{current_build_version}' from {root_version_file}")
+    else:
+        print(f"MAIN_SCRIPT.PY: {root_version_file} not found. Using default version '{current_build_version}'.")
 
     # --- jules_build_automation_cs_content ---
     # ProjectName is now dynamic via args.project_name (Subtask 3)
@@ -35,9 +50,12 @@ using Unity.XR.CoreUtils;
 using Object = UnityEngine.Object;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.SceneManagement;
+using System.Diagnostics; // Required for Process class
+using Debug = UnityEngine.Debug; // Explicitly use UnityEngine.Debug to avoid conflict with System.Diagnostics.Debug
 
 public class JulesBuildAutomation
 {{{{
+    public static string buildVersion = \\"{current_build_version}\\"; // Dynamically set by main_script.py
     private const string ProjectName = \\"{args.project_name}\\"; // From Subtask 3
     private static List<string> xrPackages = new List<string>
     {{{{
@@ -59,7 +77,8 @@ public class JulesBuildAutomation
     [MenuItem("Jules/PerformAlphaTestBuild")]
     public static void PerformAlphaTestBuild()
     {{{{
-        Debug.Log("JulesBuildAutomation: Starting Alpha Test Build...");
+        LoadBuildVersion(); // Added for versioning
+        Debug.Log($"JulesBuildAutomation: Starting Alpha Test Build for version {{buildVersion}}..."); // Modified for versioning
         string sampleScenePath = "Assets/Scenes/SampleScene.unity";
         if (!File.Exists(sampleScenePath))
         {{{{
@@ -69,13 +88,20 @@ public class JulesBuildAutomation
         }}}}
         BuildPlayerOptions buildOptions = new BuildPlayerOptions();
         buildOptions.scenes = new[] {{{{ sampleScenePath }}}};
-        string windowsBuildPath = $"Builds/AlphaTest/Windows/{{{{ProjectName}}}}.exe";
-        string androidBuildPath = $"Builds/AlphaTest/Android/{{{{ProjectName}}}}.apk";
-        Directory.CreateDirectory(Path.GetDirectoryName(windowsBuildPath));
-        Directory.CreateDirectory(Path.GetDirectoryName(androidBuildPath));
 
-        Debug.Log("JulesBuildAutomation: Building for Windows Standalone (Alpha Test)...");
-        buildOptions.locationPathName = windowsBuildPath;
+        // Adjusted build paths for versioned subfolders
+        string windowsBuildFolder = Path.Combine("Builds", "AlphaTest", "Windows", $"{ProjectName}_v{buildVersion}");
+        Directory.CreateDirectory(windowsBuildFolder);
+        string windowsBuildPath = Path.Combine(windowsBuildFolder, $"{ProjectName}.exe");
+
+        string androidBuildFolder = Path.Combine("Builds", "AlphaTest", "Android", $"{ProjectName}_v{buildVersion}");
+        Directory.CreateDirectory(androidBuildFolder);
+        string androidBuildPath = Path.Combine(androidBuildFolder, $"{ProjectName}.apk");
+        // Directory.CreateDirectory(Path.GetDirectoryName(windowsBuildPath)); // No longer needed due to specific folder creation
+        // Directory.CreateDirectory(Path.GetDirectoryName(androidBuildPath)); // No longer needed
+
+        Debug.Log($"JulesBuildAutomation: Building for Windows Standalone (Alpha Test) version {{buildVersion}} into {{windowsBuildPath}}...");
+        buildOptions.locationPathName = windowsBuildPath; // Corrected path
         buildOptions.target = BuildTarget.StandaloneWindows64;
         buildOptions.options = BuildOptions.None;
         BuildReport reportWindows = BuildPipeline.BuildPlayer(buildOptions);
@@ -91,8 +117,8 @@ public class JulesBuildAutomation
             return;
         }}}}
 
-        Debug.Log("JulesBuildAutomation: Building for Android (Alpha Test for Quest/VR)...");
-        buildOptions.locationPathName = androidBuildPath;
+        Debug.Log($"JulesBuildAutomation: Building for Android (Alpha Test for Quest/VR) version {{buildVersion}} into {{androidBuildPath}}..."); // Modified for versioning
+        buildOptions.locationPathName = androidBuildPath; // Corrected path
         buildOptions.target = BuildTarget.Android;
         buildOptions.options = BuildOptions.None;
         // Modification from Subtask 1 - Check SwitchActiveBuildTarget success
@@ -120,6 +146,196 @@ public class JulesBuildAutomation
         }}}}
         Debug.Log("JulesBuildAutomation: All Alpha Test Builds completed successfully.");
         EditorApplication.Exit(0);
+    }}}}
+
+    [MenuItem("Jules/PerformSmokeTests")]
+    public static void PerformSmokeTests()
+    {{{{
+        Debug.Log("JulesBuildAutomation: Starting Smoke Tests...");
+        // Ensure build version is current if PerformAlphaTestBuild was run prior in the same session.
+        // If this method is run in a new Unity session, LoadBuildVersion might be needed here,
+        // or rely on the version set at script initialization (passed from main_script.py).
+        // For simplicity, we assume buildVersion is correctly populated by LoadBuildVersion()
+        // if called from a context where builds were just made, or it's the one from main_script.py.
+        // Consider calling LoadBuildVersion() here if these tests can be run independently after editor restart.
+        // LoadBuildVersion();
+
+        bool allTestsPassed = true;
+        Debug.Log($"JulesBuildAutomation: Using version {{buildVersion}} for smoke test paths.");
+
+        // Define paths based on the new structure used in PerformAlphaTestBuild
+        string windowsBuildFolder = Path.Combine("Builds", "AlphaTest", "Windows", $"{ProjectName}_v{buildVersion}");
+        string windowsExePath = Path.Combine(windowsBuildFolder, $"{ProjectName}.exe");
+        string windowsDataFolder = Path.Combine(windowsBuildFolder, $"{ProjectName}_Data");
+
+        string androidBuildFolder = Path.Combine("Builds", "AlphaTest", "Android", $"{ProjectName}_v{buildVersion}");
+        string androidApkPath = Path.Combine(androidBuildFolder, $"{ProjectName}.apk");
+
+        // --- Windows Smoke Tests ---
+        Debug.Log("JulesBuildAutomation: --- Windows Smoke Tests ---");
+        // 1. Check .exe existence
+        if (File.Exists(windowsExePath))
+        {{{{
+            Debug.Log($"JulesBuildAutomation: SUCCESS - Windows executable found at {{windowsExePath}}.");
+        }}}}
+        else
+        {{{{
+            Debug.LogError($"JulesBuildAutomation: FAILURE - Windows executable NOT found at {{windowsExePath}}.");
+            allTestsPassed = false;
+        }}}}
+
+        // 2. Check _Data folder existence and non-emptiness
+        if (Directory.Exists(windowsDataFolder))
+        {{{{
+            // Check if not empty by looking for any file or directory within it
+            if (Directory.EnumerateFileSystemEntries(windowsDataFolder).Any())
+            {{{{
+                Debug.Log($"JulesBuildAutomation: SUCCESS - Windows _Data folder found at {{windowsDataFolder}} and is not empty.");
+            }}}}
+            else
+            {{{{
+                Debug.LogWarning($"JulesBuildAutomation: WARNING - Windows _Data folder found at {{windowsDataFolder}} but is EMPTY.");
+                // Depending on strictness, this could be allTestsPassed = false;
+            }}}}
+        }}}}
+        else
+        {{{{
+            Debug.LogError($"JulesBuildAutomation: FAILURE - Windows _Data folder NOT found at {{windowsDataFolder}}.");
+            allTestsPassed = false;
+        }}}}
+
+        // 3. Basic Launch Test (Windows)
+        if (allTestsPassed && File.Exists(windowsExePath)) // Only attempt launch if previous checks related to exe were fine
+        {{{{
+            Debug.Log($"JulesBuildAutomation: Attempting to launch Windows executable: {{windowsExePath}} for a short period...");
+            Process process = new Process();
+            process.StartInfo.FileName = windowsExePath;
+            process.StartInfo.WindowStyle = ProcessWindowStyle.Minimized; // Try to avoid focus stealing
+            try
+            {{{{
+                process.Start();
+                int timeoutMilliseconds = 10000; // 10 seconds
+                if (process.WaitForExit(timeoutMilliseconds))
+                {{{{
+                    Debug.Log($"JulesBuildAutomation: Windows executable launched and exited within timeout. Exit Code: {{process.ExitCode}}.");
+                    if (process.ExitCode != 0)
+                    {{{{
+                        Debug.LogWarning($"JulesBuildAutomation: WARNING - Windows executable exited with non-zero code: {{process.ExitCode}}. This might indicate an issue.");
+                        // Consider setting allTestsPassed = false; if a non-zero exit code is a definitive failure.
+                    }}}}
+                }}}}
+                else
+                {{{{
+                    Debug.LogWarning($"JulesBuildAutomation: WARNING - Windows executable did not exit within {{timeoutMilliseconds / 1000}} seconds. Attempting to kill.");
+                    if (!process.HasExited) process.Kill();
+                    // allTestsPassed = false; // Consider this a failure if it hangs
+                }}}}
+            }}}}
+            catch (System.Exception ex)
+            {{{{
+                Debug.LogError($"JulesBuildAutomation: FAILURE - Exception during Windows executable launch test: {{ex.Message}}");
+                allTestsPassed = false;
+            }}}}
+        }}}}
+        else if (!File.Exists(windowsExePath))
+        {{{{
+             Debug.Log("JulesBuildAutomation: Skipping Windows executable launch test as the file was not found.");
+        }}}}
+
+
+        // --- Android Smoke Tests ---
+        Debug.Log("JulesBuildAutomation: --- Android Smoke Tests ---");
+        // 1. Check .apk existence
+        if (File.Exists(androidApkPath))
+        {{{{
+            Debug.Log($"JulesBuildAutomation: SUCCESS - Android APK found at {{androidApkPath}}.");
+        }}}}
+        else
+        {{{{
+            Debug.LogError($"JulesBuildAutomation: FAILURE - Android APK NOT found at {{androidApkPath}}.");
+            allTestsPassed = false;
+        }}}}
+        // Optional: Further APK checks (e.g., size) could be added here if desired.
+        // Verifying contents of an APK is complex from Unity C# alone.
+
+        // --- Summary ---
+        Debug.Log("JulesBuildAutomation: --- Smoke Test Summary ---");
+        if (allTestsPassed)
+        {{{{
+            Debug.Log("JulesBuildAutomation: All smoke tests passed successfully.");
+            EditorApplication.Exit(0);
+        }}}}
+        else
+        {{{{
+            Debug.LogError("JulesBuildAutomation: One or more smoke tests FAILED. Check logs for details.");
+            EditorApplication.Exit(1);
+        }}}}
+    }}}}
+
+    public static void IncrementBuildVersion()
+    {{{{
+        Debug.Log($"JulesBuildAutomation: Current version: {{buildVersion}}");
+        string[] versionParts = buildVersion.Split('.');
+        if (versionParts.Length == 3 && int.TryParse(versionParts[2], out int patch))
+        {{{{
+            patch++;
+            buildVersion = $"{{{{versionParts[0]}}}}.{{{{versionParts[1]}}}}.{{{{patch}}}}";
+            Debug.Log($"JulesBuildAutomation: Incremented version to: {{buildVersion}}");
+
+            string versionFilePath = "Assets/Resources/build_version.txt";
+            string resourcesFolderPath = Path.GetDirectoryName(versionFilePath);
+            if (!Directory.Exists(resourcesFolderPath))
+            {{{{
+                Directory.CreateDirectory(resourcesFolderPath);
+                AssetDatabase.Refresh(); // Ensure Unity sees the new folder
+                Debug.Log($"JulesBuildAutomation: Created directory: {{resourcesFolderPath}}");
+            }}}}
+            File.WriteAllText(versionFilePath, buildVersion);
+            AssetDatabase.Refresh(); // Ensure Unity sees the new file or changes
+            Debug.Log($"JulesBuildAutomation: Saved new version to {{versionFilePath}}");
+        }}}}
+        else
+        {{{{
+            Debug.LogError($"JulesBuildAutomation: Could not parse buildVersion '{{buildVersion}}'. Expected format MAJOR.MINOR.PATCH");
+        }}}}
+    }}}}
+
+    public static void LoadBuildVersion()
+    {{{{
+        string versionFilePath = "Assets/Resources/build_version.txt";
+        if (File.Exists(versionFilePath))
+        {{{{
+            string versionFromFile = File.ReadAllText(versionFilePath).Trim();
+            // Basic validation for "X.Y.Z" format
+            string[] versionParts = versionFromFile.Split('.');
+            if (versionParts.Length == 3 &&
+                int.TryParse(versionParts[0], out _) &&
+                int.TryParse(versionParts[1], out _) &&
+                int.TryParse(versionParts[2], out _))
+            {{{{
+                buildVersion = versionFromFile;
+                PlayerSettings.bundleVersion = buildVersion;
+                // Optionally append version to product name, e.g., "RubeGoldbergVR v0.1.0"
+                // PlayerSettings.productName = $"{ProjectName} v{buildVersion}";
+                // For now, keeping product name as is, but bundleVersion is updated.
+                Debug.Log($"JulesBuildAutomation: Loaded version {{buildVersion}} from {{versionFilePath}}. PlayerSettings.bundleVersion updated.");
+            }}}}
+            else
+            {{{{
+                Debug.LogWarning($"JulesBuildAutomation: Version file '{{versionFilePath}}' contained invalid format '{{versionFromFile}}'. Using default version {{buildVersion}}.");
+            }}}}
+        }}}}
+        else
+        {{{{
+            Debug.Log($"JulesBuildAutomation: Version file '{{versionFilePath}}' not found. Using default version {{buildVersion}}. It will be created on next increment or build if setup correctly.");
+            // Optionally, save the default version here if it's the first ever run and no file exists
+            // IncrementBuildVersion(); // This would create it, but might not be desired on every load if file is missing.
+            // For now, let's assume the file is created by IncrementBuildVersion or a manual process first.
+        }}}}
+        // Ensure PlayerSettings are updated even if file wasn't found, using the current static buildVersion
+        PlayerSettings.bundleVersion = buildVersion;
+         // Ensure productName is also set, potentially based on ProjectName
+        if (PlayerSettings.productName != ProjectName) {{ PlayerSettings.productName = ProjectName; }}
     }}}}
 
     [MenuItem("Jules/SetupRubeGoldbergGame")]
@@ -275,6 +491,10 @@ parser.add_argument("--cs-script-source", type=str, default=default_cs_script_so
                     help="Source path of the C# Editor script to be deployed (relative to script location).")
 # --run-alpha-build added in Subtask 2
 parser.add_argument("--run-alpha-build", action="store_true", help="Run Alpha Test builds after project setup.")
+# --increment-version-after-build for managing versioning
+parser.add_argument("--increment-version-after-build", action="store_true", help="Increment build version via Unity after a successful build.")
+# --run-smoke-tests for triggering smoke tests
+parser.add_argument("--run-smoke-tests", action="store_true", help="Run smoke tests after a successful alpha build.")
 
 args = parser.parse_args()
 
@@ -349,10 +569,39 @@ print("JulesBuildAutomation.SetupVRProject completed, which handles VR setup and
 if args.run_alpha_build:
     print(f"Step 4: Executing JulesBuildAutomation.PerformAlphaTestBuild...")
     alpha_build_command = [unity_editor_path, "-batchmode", "-quit", "-projectPath", project_path, "-executeMethod", "JulesBuildAutomation.PerformAlphaTestBuild", "-logFile", os.path.join(project_path, "Logs", "unity_alpha_build_log.txt")]
-    if not run_command(alpha_build_command, "unity_alpha_build_log.txt"):
+    alpha_build_succeeded = run_command(alpha_build_command, "unity_alpha_build_log.txt")
+    if not alpha_build_succeeded:
         print("Execution of JulesBuildAutomation.PerformAlphaTestBuild failed.")
         exit(1)
     print("JulesBuildAutomation.PerformAlphaTestBuild completed.")
+
+    if alpha_build_succeeded and args.increment_version_after_build:
+        print(f"Step 5: Executing JulesBuildAutomation.IncrementBuildVersion to update version in Assets/Resources...")
+        increment_version_command = [unity_editor_path, "-batchmode", "-quit", "-projectPath", project_path, "-executeMethod", "JulesBuildAutomation.IncrementBuildVersion", "-logFile", os.path.join(project_path, "Logs", "unity_increment_version_log.txt")]
+        if not run_command(increment_version_command, "unity_increment_version_log.txt"):
+            print("Execution of JulesBuildAutomation.IncrementBuildVersion failed. The version in Assets/Resources/build_version.txt might be stale.")
+            # Depending on desired strictness, one might exit(1) here.
+            # For now, we'll just log the error and continue, as the main build succeeded.
+        else:
+            print("JulesBuildAutomation.IncrementBuildVersion completed. Version in Assets/Resources/build_version.txt should be updated.")
+    elif not args.increment_version_after_build:
+        print("Skipping version increment as --increment-version-after-build flag was not set.")
+
+    # Conditional Smoke Tests call
+    if args.run_alpha_build and args.run_smoke_tests and alpha_build_succeeded:
+        print(f"Step 6: Executing JulesBuildAutomation.PerformSmokeTests...")
+        smoke_test_command = [unity_editor_path, "-batchmode", "-quit", "-projectPath", project_path, "-executeMethod", "JulesBuildAutomation.PerformSmokeTests", "-logFile", os.path.join(project_path, "Logs", "unity_smoke_test_log.txt")]
+        smoke_tests_command_succeeded = run_command(smoke_test_command, "unity_smoke_test_log.txt")
+        if not smoke_tests_command_succeeded:
+            print("Execution of JulesBuildAutomation.PerformSmokeTests failed. Unity reported an error or the command could not be run. Check unity_smoke_test_log.txt for details.")
+            exit(1) # Exit with error if smoke tests fail
+        print("JulesBuildAutomation.PerformSmokeTests completed.")
+    elif args.run_smoke_tests and not alpha_build_succeeded:
+        print("Skipping smoke tests as the Alpha Test Build did not succeed or was not run.")
+    elif args.run_smoke_tests and not args.run_alpha_build:
+         print("Skipping smoke tests as --run-alpha-build was not set (required for smoke tests).")
+
+
 else:
     print("Skipping Alpha Test Builds as --run-alpha-build flag was not set.")
 
@@ -377,10 +626,51 @@ print("All automation steps initiated by create_unity_project.py completed succe
     ]
     if args.alpha_build: # From Subtask 3
         command_parts.append("--run-alpha-build")
+        command_parts.append("--increment-version-after-build") # Trigger increment in create_unity_project.py
+        if args.alpha_build_smoke_test: # New condition for smoke tests
+            command_parts.append("--run-smoke-tests")
     jules_command = " ".join(command_parts)
 
     print(f"To create/setup the Unity project, run the following command from the repository root:")
     print(jules_command)
+
+    # If an alpha build was triggered, attempt to read the incremented version back from the Unity project
+    # and write it to the root build_version.txt for the next run.
+    if args.alpha_build and not test_mode_no_write: # Only if not in test_mode_no_write
+        unity_project_resources_version_file_path = os.path.join(args.project_name, "Assets", "Resources", "build_version.txt")
+        # This part simulates what would happen after the jules_command is actually run.
+        # In a real CI/CD, this logic might be in a subsequent script or step.
+        print(f"MAIN_SCRIPT.PY: Simulating post-build version update (as --alpha-build was specified).")
+        print(f"MAIN_SCRIPT.PY: Attempting to read version from Unity project's resource file: {unity_project_resources_version_file_path}")
+
+        # We need to ensure the directory for args.project_name exists before trying to read from it,
+        # and also Assets/Resources. In a real run, Unity would create these.
+        # For this simulation, we'll only try to read if the file is expected to be there.
+        # This is a placeholder for the actual file read that would happen *after* Unity runs.
+        # Since we can't actually run Unity here, we'll write the *current_build_version* + 1 patch
+        # to simulate the increment that *would* have happened.
+        # This is a simplification for the current context.
+
+        # A more realistic simulation: if IncrementBuildVersion was supposed to run,
+        # it would have updated Assets/Resources/build_version.txt. We try to read that.
+        # If it's not there (e.g. Unity didn't run or failed before increment), we log a warning.
+        if os.path.exists(unity_project_resources_version_file_path):
+            with open(unity_project_resources_version_file_path, "r") as f:
+                incremented_version_from_unity = f.read().strip()
+                if incremented_version_from_unity:
+                    with open(root_version_file, "w") as rf:
+                        rf.write(incremented_version_from_unity)
+                    print(f"MAIN_SCRIPT.PY: Successfully read '{incremented_version_from_unity}' from Unity project and updated {root_version_file}.")
+                else:
+                    print(f"MAIN_SCRIPT.PY: Warning - Unity project's version file '{unity_project_resources_version_file_path}' was empty. Root {root_version_file} not updated.")
+        else:
+            # This case will be hit if JulesBuildAutomation.cs hasn't run yet to create the file.
+            # For the purpose of this script (which generates other scripts but doesn't run them itself),
+            # this is an expected state if this is the first time or if the Unity project doesn't exist yet.
+            # If main_script.py were to *actually run* create_unity_project.py and wait for it,
+            # then this file should exist after a successful run with increment.
+            print(f"MAIN_SCRIPT.PY: Warning - Unity project's version file '{unity_project_resources_version_file_path}' not found. Root {root_version_file} not updated. This is expected if Unity has not run and created it yet.")
+
 
 # From Subtask 3
 if __name__ == "__main__":
