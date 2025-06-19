@@ -183,9 +183,10 @@ public class JulesBuildAutomation
     {
         Debug.Log($"Jules: Configuring XR for {tabName}...");
 
+        string xrGeneralSettingsForEditorKey = "UnityEditor.XR.Management.XRGeneralSettingsForEditor";
         XRGeneralSettingsForEditor generalSettings = null;
         // Corrected: Use TryGetConfigObject to get existing settings or allow creation if null
-        EditorBuildSettings.TryGetConfigObject(XRGeneralSettingsForEditor.k_SettingsKey, out generalSettings);
+        EditorBuildSettings.TryGetConfigObject(xrGeneralSettingsForEditorKey, out generalSettings);
         if (generalSettings == null)
         {
             // This creates a general settings asset if one doesn't exist.
@@ -194,6 +195,7 @@ public class JulesBuildAutomation
             // The SetBuildTargetSettings is key to actually saving/assigning this new settings object
             XRGeneralSettingsForEditor.SetBuildTargetSettings(buildTargetGroup, generalSettings);
             Debug.Log($"Jules: Created new XRGeneralSettingsForEditor for {tabName} and assigned it.");
+            EditorBuildSettings.AddConfigObject(xrGeneralSettingsForEditorKey, generalSettings, true);
         } else {
             Debug.Log($"Jules: Found existing XRGeneralSettingsForEditor for {tabName}.");
         }
@@ -236,6 +238,7 @@ public class JulesBuildAutomation
             Debug.Log($"Jules: Added OpenXR Loader to {tabName} XR General Settings.");
             EditorUtility.SetDirty(generalSettings); // Mark the main settings object as dirty
             EditorUtility.SetDirty(managerSettings); // Also mark manager settings as dirty
+            EditorUtility.SetDirty(generalSettings); // Ensure generalSettings is marked dirty after loader modification
         } else {
             Debug.Log($"Jules: OpenXR Loader already present for {tabName}.");
         }
