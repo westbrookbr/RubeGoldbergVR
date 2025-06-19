@@ -11,22 +11,21 @@ using System.Linq;
 using Unity.XR.OpenXR;
 using UnityEditor.SceneManagement;
 using Unity.XR.CoreUtils;
-using Object = UnityEngine.Object; // Explicitly specify UnityEngine.Object to avoid ambiguity
+using Object = UnityEngine.Object;
+using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.SceneManagement; // Added for SceneManager
 
 public class JulesBuildAutomation
 {
     private const string ProjectName = "RubeGoldbergVR";
-    // List of XR packages to ensure are installed for VR functionality
     private static List<string> xrPackages = new List<string>
     {
-        "com.unity.xr.interaction.toolkit@2.3.1", // Specify version for consistency
-        "com.unity.xr.openxr@1.9.0" // Specify version for consistency
+        "com.unity.xr.interaction.toolkit@2.3.1",
+        "com.unity.xr.openxr@1.9.0"
     };
 
     private static AddRequest currentAddRequest;
     private static int packageIndex = 0;
-
-    // --- Entry points for Jules (via -executeMethod) ---
 
     [MenuItem("Jules/SetupVRProject")]
     public static void SetupVRProject()
@@ -58,7 +57,6 @@ public class JulesBuildAutomation
         Directory.CreateDirectory(Path.GetDirectoryName(windowsBuildPath));
         Directory.CreateDirectory(Path.GetDirectoryName(androidBuildPath));
 
-        // --- Build for Windows Standalone ---
         Debug.Log("Jules: Building for Windows Standalone (Alpha Test)...");
         buildOptions.locationPathName = windowsBuildPath;
         buildOptions.target = BuildTarget.StandaloneWindows64;
@@ -78,7 +76,6 @@ public class JulesBuildAutomation
             return;
         }
 
-        // --- Build for Android (for Quest/VR) ---
         Debug.Log("Jules: Building for Android (Alpha Test for Quest/VR)...");
         buildOptions.locationPathName = androidBuildPath;
         buildOptions.target = BuildTarget.Android;
@@ -108,7 +105,16 @@ public class JulesBuildAutomation
         EditorApplication.Exit(0);
     }
 
-    // --- Internal Helper Methods ---
+    [MenuItem("Jules/SetupRubeGoldbergGame")]
+    public static void SetupRubeGoldbergGame()
+    {
+        Debug.Log("Jules: Starting Rube Goldberg Game Setup...");
+        CreateBasicVRSceneElements();
+        AddInteractablePhysicsObjects();
+        CreateRubeGoldbergPrefabs();
+        EditorApplication.Exit(0);
+    }
+
 
     private static void EnsureEditorFolderExists()
     {
@@ -129,7 +135,7 @@ public class JulesBuildAutomation
     {
         if (currentAddRequest != null && !currentAddRequest.IsCompleted)
         {
-            return; // Wait for current request to complete
+            return;
         }
 
         if (packageIndex < xrPackages.Count)
@@ -159,7 +165,7 @@ public class JulesBuildAutomation
 
         Debug.Log("Jules: XR configuration complete. Project ready for VR development.");
 
-        CreateBasicVRSceneElements();
+        EditorApplication.delayCall += SetupRubeGoldbergGame;
     }
 
     private static void ConfigureBuildTargetXRSettings(BuildTargetGroup buildTargetGroup, BuildTarget buildTarget, string tabName)
@@ -169,23 +175,18 @@ public class JulesBuildAutomation
         XRGeneralSettingsForEditor generalSettings;
         string settingsKey = XRGeneralSettingsForEditor.k_SettingsKey;
 
-        // Try to get existing settings
         if (!EditorBuildSettings.TryGetConfigObject(settingsKey, out generalSettings))
         {
-            // If not found, create new settings
             generalSettings = ScriptableObject.CreateInstance<XRGeneralSettingsForEditor>();
-            EditorBuildSettings.AddConfigObject(settingsKey, generalSettings, true); // Add it to EditorBuildSettings
+            EditorBuildSettings.AddConfigObject(settingsKey, generalSettings, true);
             Debug.Log($"Jules: Created new XRGeneralSettingsForEditor for {tabName}.");
         }
 
-        // Ensure the XRGeneralSettingsForEditor instance for this build target group is correctly set
         XRGeneralSettingsForEditor.SetBuildTargetSettings(buildTargetGroup, generalSettings);
 
-        // Temporarily switch build target for accurate settings application
         EditorUserBuildSettings.activeBuildTargetGroup = buildTargetGroup;
         EditorUserBuildSettings.SwitchActiveBuildTarget(buildTargetGroup, buildTarget);
 
-        // Get the XRManagerSettings for the current generalSettings
         if (generalSettings.Manager == null)
         {
             generalSettings.Manager = ScriptableObject.CreateInstance<XRManagerSettings>();
@@ -193,7 +194,6 @@ public class JulesBuildAutomation
             Debug.Log($"Jules: Created new XRManagerSettings for {tabName}.");
         }
 
-        // Add OpenXR Loader if not already present in the list of configured loaders
         var currentLoaders = generalSettings.Manager.loaders;
         bool openXRLoaderFound = false;
         OpenXRLoader openXRLoader = null;
@@ -220,7 +220,6 @@ public class JulesBuildAutomation
             Debug.Log($"Jules: Added OpenXR Loader to {tabName} XR General Settings.");
         }
 
-        // Configure OpenXR settings (e.g., add interaction profiles)
         OpenXRSettings openXRSettings = OpenXRSettings.GetForBuildTargetGroup(buildTargetGroup);
         if (openXRSettings != null)
         {
@@ -360,5 +359,165 @@ public class JulesBuildAutomation
             visualizerRenderer.sharedMaterial = new Material(Shader.Find("Standard"));
             visualizerRenderer.sharedMaterial.color = isLeftHand ? Color.blue : Color.red;
         }
+    }
+
+    private static void AddPhysicsAndInteraction(GameObject obj)
+    {
+        if (obj.GetComponent<Rigidbody>() == null)
+        {
+            Rigidbody rb = obj.AddComponent<Rigidbody>();
+            rb.mass = 1.0f;
+            Debug.Log($"Jules: Added Rigidbody to {obj.name}.");
+        }
+
+        if (obj.GetComponent<XRGrabInteractable>() == null)
+        {
+            obj.AddComponent<XRGrabInteractable>();
+            Debug.Log($"Jules: Added XRGrabInteractable to {obj.name}.");
+        }
+
+        Collider collider = obj.GetComponent<Collider>();
+        if (collider != null)
+        {
+            collider.isTrigger = false;
+        }
+    }
+
+    private static void AddInteractablePhysicsObjects()
+    {
+        Debug.Log("Jules: Adding interactable physics objects...");
+
+        Scene activeScene = EditorSceneManager.GetActiveScene();
+        if (!activeScene.IsValid())
+        {
+            Debug.LogError("Jules: No active scene found. Please ensure a scene is open.");
+            return;
+        }
+
+        GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        cube.name = "Interactable_Cube";
+        cube.transform.position = new Vector3(0.5f, 1f, 1f);
+        AddPhysicsAndInteraction(cube);
+        Renderer cubeRenderer = cube.GetComponent<Renderer>();
+        if (cubeRenderer != null)
+        {
+            cubeRenderer.sharedMaterial = new Material(Shader.Find("Standard"));
+            cubeRenderer.sharedMaterial.color = Color.cyan;
+        }
+        Debug.Log("Jules: Added Interactable_Cube.");
+
+        GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        sphere.name = "Interactable_Sphere";
+        sphere.transform.position = new Vector3(-0.5f, 1f, 1f);
+        AddPhysicsAndInteraction(sphere);
+        Renderer sphereRenderer = sphere.GetComponent<Renderer>();
+        if (sphereRenderer != null)
+        {
+            sphereRenderer.sharedMaterial = new Material(Shader.Find("Standard"));
+            sphereRenderer.sharedMaterial.color = Color.magenta;
+        }
+        Debug.Log("Jules: Added Interactable_Sphere.");
+
+        GameObject cylinder = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        cylinder.name = "Interactable_Cylinder";
+        cylinder.transform.position = new Vector3(0f, 1f, 0.5f);
+        AddPhysicsAndInteraction(cylinder);
+        Renderer cylinderRenderer = cylinder.GetComponent<Renderer>();
+        if (cylinderRenderer != null)
+        {
+            cylinderRenderer.sharedMaterial = new Material(Shader.Find("Standard"));
+            cylinderRenderer.sharedMaterial.color = Color.yellow;
+        }
+        Debug.Log("Jules: Added Interactable_Cylinder.");
+
+        EditorSceneManager.SaveScene(activeScene);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log("Jules: Interactable physics objects added to the scene.");
+    }
+
+    private static void CreateRubeGoldbergPrefabs()
+    {
+        Debug.Log("Jules: Creating Rube Goldberg prefabs...");
+
+        string prefabsPath = "Assets/RubeGoldbergPrefabs";
+        if (!AssetDatabase.IsValidFolder(prefabsPath))
+        {
+            AssetDatabase.CreateFolder("Assets", "RubeGoldbergPrefabs");
+            Debug.Log($"Jules: Created folder: {prefabsPath}");
+        }
+
+        // --- Ramp Prefab ---
+        GameObject rampBase = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        rampBase.name = "Ramp_Prefab_Base";
+        rampBase.transform.localScale = new Vector3(1.0f, 0.1f, 2.0f);
+        rampBase.transform.rotation = Quaternion.Euler(-15f, 0, 0);
+        rampBase.transform.position = new Vector3(0, 0.5f, 0);
+
+        AddPhysicsAndInteraction(rampBase);
+
+        string rampPrefabPath = $"{prefabsPath}/Ramp.prefab";
+        PrefabUtility.SaveAsPrefabAsset(rampBase, rampPrefabPath);
+        Object.DestroyImmediate(rampBase);
+        Debug.Log($"Jules: Created Ramp prefab at {rampPrefabPath}.");
+
+        // --- Lever Prefab (Simple representation) ---
+        GameObject leverBase = new GameObject("Lever_Prefab_Base");
+
+        GameObject pivot = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        pivot.name = "Pivot";
+        pivot.transform.SetParent(leverBase.transform);
+        pivot.transform.localScale = new Vector3(0.1f, 0.5f, 0.1f);
+        pivot.transform.localPosition = new Vector3(0, 0.25f, 0);
+
+        // Add a kinematic Rigidbody to the pivot. This allows the HingeJoint to connect to it.
+        // A kinematic Rigidbody does not simulate physics but can act as a fixed reference for joints.
+        Rigidbody pivotRb = pivot.AddComponent<Rigidbody>();
+        pivotRb.isKinematic = true;
+        Debug.Log($"Jules: Added kinematic Rigidbody to {pivot.name}.");
+
+        GameObject arm = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        arm.name = "Arm";
+        arm.transform.SetParent(leverBase.transform);
+        arm.transform.localScale = new Vector3(0.1f, 0.1f, 1.0f);
+        arm.transform.localPosition = new Vector3(0, 0.5f, 0.5f);
+
+        Rigidbody armRb = arm.AddComponent<Rigidbody>();
+        armRb.mass = 0.5f;
+
+        HingeJoint hj = arm.AddComponent<HingeJoint>();
+        // Connect the arm's Rigidbody to the pivot's Rigidbody
+        hj.connectedBody = pivotRb;
+        hj.anchor = new Vector3(0, 0, -0.5f);
+        hj.axis = new Vector3(1, 0, 0);
+        hj.useLimits = true;
+        JointLimits limits = hj.limits;
+        limits.min = -45f;
+        limits.max = 45f;
+        hj.limits = limits;
+        Debug.Log($"Jules: Configured HingeJoint on {arm.name}, connected to {pivot.name}.");
+
+        XRGrabInteractable armGrab = arm.AddComponent<XRGrabInteractable>();
+        armGrab.trackPosition = false; // HingeJoint handles position, we want to grab for rotation
+
+        string leverPrefabPath = $"{prefabsPath}/Lever.prefab";
+        PrefabUtility.SaveAsPrefabAsset(leverBase, leverPrefabPath);
+        Object.DestroyImmediate(leverBase);
+        Debug.Log($"Jules: Created Lever prefab at {leverPrefabPath}.");
+
+        // --- Domino Prefab ---
+        GameObject domino = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        domino.name = "Domino_Prefab";
+        domino.transform.localScale = new Vector3(0.1f, 0.5f, 0.25f);
+        AddPhysicsAndInteraction(domino);
+
+        string dominoPrefabPath = $"{prefabsPath}/Domino.prefab";
+        PrefabUtility.SaveAsPrefabAsset(domino, dominoPrefabPath);
+        Object.DestroyImmediate(domino);
+        Debug.Log($"Jules: Created Domino prefab at {dominoPrefabPath}.");
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log("Jules: All Rube Goldberg prefabs created.");
     }
 }
