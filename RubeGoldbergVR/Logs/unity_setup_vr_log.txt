@@ -1,0 +1,1 @@
+Dummy Unity Editor invoked with arguments: -batchmode -quit -projectPath /app/RubeGoldbergVR -executeMethod JulesBuildAutomation.SetupVRProject -logFile /app/RubeGoldbergVR/Logs/unity_setup_vr_log.txt
