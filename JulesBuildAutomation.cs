@@ -249,9 +249,9 @@ public class JulesBuildAutomation
                 if (!feature.enabled)
                 {
                     feature.enabled = true;
-                    Debug.Log($"Jules: Enabled OpenXR feature: {feature.name} (ID: {feature.featureId}}) for {settings.buildTargetGroup}.");
+                    Debug.Log($"Jules: Enabled OpenXR feature: {feature.name} (ID: {feature.featureId}) for {settings.buildTargetGroup}.");
                 } else {
-                    Debug.Log($"Jules: OpenXR feature: {feature.name} (ID: {feature.featureId}}) already enabled for {settings.buildTargetGroup}.");
+                    Debug.Log($"Jules: OpenXR feature: {feature.name} (ID: {feature.featureId}) already enabled for {settings.buildTargetGroup}.");
                 }
                 return;
             }

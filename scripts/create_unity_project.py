@@ -61,11 +61,11 @@ create_project_command = [
     "-createProject",
     project_path,
     "-logFile",
-    os.path.join(project_path, "Logs", "unity_create_project.log"), # Log path updated
+    os.path.join(project_path, "Logs", "unity_create_project.log"),
     "-version",
     args.unity_version
 ]
-if not run_command(create_project_command, "unity_create_project.log"): # Pass log_file_name
+if not run_command(create_project_command, "unity_create_project.log"):
     exit(1)
 print(f"Unity project '{args.project_name}' created successfully.")
 
@@ -96,9 +96,9 @@ setup_vr_command = [
     "-executeMethod",
     "JulesBuildAutomation.SetupVRProject",
     "-logFile",
-    os.path.join(project_path, "Logs", "unity_setup_vr_log.txt") # Log path updated
+    os.path.join(project_path, "Logs", "unity_setup_vr_log.txt")
 ]
-if not run_command(setup_vr_command, "unity_setup_vr_log.txt"): # Pass log_file_name
+if not run_command(setup_vr_command, "unity_setup_vr_log.txt"):
     print("SetupVRProject failed.")
     exit(1)
 print("SetupVRProject completed.")
@@ -116,9 +116,9 @@ perform_build_command = [
     "-executeMethod",
     "JulesBuildAutomation.PerformAlphaTestBuild",
     "-logFile",
-    os.path.join(project_path, "Logs", "unity_alpha_build_log.txt") # Log path updated
+    os.path.join(project_path, "Logs", "unity_alpha_build_log.txt")
 ]
-if not run_command(perform_build_command, "unity_alpha_build_log.txt"): # Pass log_file_name
+if not run_command(perform_build_command, "unity_alpha_build_log.txt"):
     print("Alpha Test Build failed.")
     exit(1)
 print("Alpha Test Builds completed successfully.")
