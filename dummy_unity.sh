@@ -1,135 +1,126 @@
 #!/bin/bash
 
-echo "Dummy Unity Editor invoked with arguments: $@"
+# dummy_unity.sh
+# This script mimics the Unity Editor CLI behavior for testing purposes.
+# It logs arguments and creates placeholder files/directories.
 
-# Log file path is usually the last argument or after -logFile
-LOG_FILE_ARG_INDEX=-1
-PROJECT_PATH_ARG_INDEX=-1
-EXECUTE_METHOD_ARG_INDEX=-1
+LOG_FILE="/dev/null" # Default log file if -logFile is not provided
+PROJECT_PATH="."     # Default project path to current directory if not specified
+EXECUTE_METHOD=""
+UNITY_VERSION_ARG=""
+CREATE_PROJECT_FLAG=false
 
-for i in $(seq 1 $#); do
-    if [ "${!i}" == "-logFile" ]; then
-        LOG_FILE_ARG_INDEX=$((i + 1))
-    fi
-    if [ "${!i}" == "-projectPath" ]; then
-        PROJECT_PATH_ARG_INDEX=$((i + 1))
-    fi
-    if [ "${!i}" == "-executeMethod" ]; then
-        EXECUTE_METHOD_ARG_INDEX=$((i + 1))
-    fi
+# Parse arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -quit) QUIT_FLAG=true; ;; # Not actively used but parsed
+        -batchmode) BATCHMODE_FLAG=true; ;; # Not actively used but parsed
+        -nographics) NOGRAPHICS_FLAG=true; ;; # Not actively used but parsed
+        -createProject) CREATE_PROJECT_FLAG=true; PROJECT_PATH="$2"; shift ;;
+        -projectPath) PROJECT_PATH="$2"; shift ;;
+        -executeMethod) EXECUTE_METHOD="$2"; shift ;;
+        -logFile) LOG_FILE="$2"; shift ;;
+        -version) UNITY_VERSION_ARG="$2"; shift ;; # Capture Unity version
+        *) echo "Unknown parameter passed: $1"; ;; # Optionally log unknown params
+    esac
+    shift # Shift to next argument
 done
 
-LOG_FILE=""
-if [ $LOG_FILE_ARG_INDEX -ne -1 ] && [ $LOG_FILE_ARG_INDEX -le $# ]; then
-    LOG_FILE="${!LOG_FILE_ARG_INDEX}"
-fi
-
-PROJECT_PATH="." # Default to current directory if not specified
-if [ $PROJECT_PATH_ARG_INDEX -ne -1 ] && [ $PROJECT_PATH_ARG_INDEX -le $# ]; then
-    PROJECT_PATH="${!PROJECT_PATH_ARG_INDEX}"
-fi
-
-# Create project directory if -createProject is used
-if [[ "$@" == *"-createProject"* ]]; then
-    CREATE_PROJECT_PATH_ARG_INDEX=-1
-    for i in $(seq 1 $#); do
-        if [ "${!i}" == "-createProject" ]; then
-            CREATE_PROJECT_PATH_ARG_INDEX=$((i + 1))
-            break
-        fi
-    done
-    if [ $CREATE_PROJECT_PATH_ARG_INDEX -ne -1 ] && [ $CREATE_PROJECT_PATH_ARG_INDEX -le $# ]; then
-        PROJECT_TO_CREATE="${!CREATE_PROJECT_PATH_ARG_INDEX}"
-        echo "Dummy Unity: Creating project at $PROJECT_TO_CREATE"
-        mkdir -p "$PROJECT_TO_CREATE/Assets/Editor"
-        mkdir -p "$PROJECT_TO_CREATE/Logs" # Also create Logs directory here
-        # Create a dummy Library folder to simulate Unity project structure
-        mkdir -p "$PROJECT_TO_CREATE/Library"
-        # Create a dummy ProjectSettings folder
-        mkdir -p "$PROJECT_TO_CREATE/ProjectSettings"
-    fi
-fi
-
-# Ensure log directory exists
-if [ -n "$LOG_FILE" ]; then
+# Ensure the log directory exists if a log file is specified
+if [ "$LOG_FILE" != "/dev/null" ] && [ -n "$LOG_FILE" ]; then
     LOG_DIR=$(dirname "$LOG_FILE")
     mkdir -p "$LOG_DIR"
-    echo "Dummy Unity: Logging to $LOG_FILE" > "$LOG_FILE"
-    echo "Command: $0 $@" >> "$LOG_FILE"
-else
-    # Default log if no -logFile is provided, common for initial create project
-    mkdir -p "$PROJECT_PATH/Logs"
-    LOG_FILE="$PROJECT_PATH/Logs/dummy_unity_default.log"
-    echo "Dummy Unity: Default logging to $LOG_FILE" > "$LOG_FILE"
-    echo "Command: $0 $@" >> "$LOG_FILE"
 fi
 
+# Append to log file instead of overwriting with '>>'
+echo "--- Dummy Unity Editor CLI Invoked ---" >> "$LOG_FILE"
+# Log all received arguments for clarity
+# This needs to be done carefully if arguments were processed above.
+# For simplicity, we'll just log the key parsed values.
+echo "Timestamp: $(date)" >> "$LOG_FILE"
+echo "Raw Arguments: $@" >> "$LOG_FILE" # Note: this will be empty if all args were shifted
+echo "Parsed Project Path: $PROJECT_PATH" >> "$LOG_FILE"
+echo "Parsed Execute Method: $EXECUTE_METHOD" >> "$LOG_FILE"
+echo "Parsed Log File: $LOG_FILE" >> "$LOG_FILE"
+echo "Parsed Unity Version: $UNITY_VERSION_ARG" >> "$LOG_FILE"
+echo "Create Project Flag: $CREATE_PROJECT_FLAG" >> "$LOG_FILE"
 
-# Simulate -executeMethod
-if [ $EXECUTE_METHOD_ARG_INDEX -ne -1 ] && [ $EXECUTE_METHOD_ARG_INDEX -le $# ]; then
-    METHOD_NAME="${!EXECUTE_METHOD_ARG_INDEX}"
-    echo "Dummy Unity: Attempting to execute method $METHOD_NAME" >> "$LOG_FILE"
-    if [ "$METHOD_NAME" == "JulesBuildAutomation.SetupVRProject" ]; then
-        echo "Jules: Starting VR Project Setup..." >> "$LOG_FILE"
-        # Simulate creation of Assets/Editor if it doesn't exist from project creation step
-        mkdir -p "$PROJECT_PATH/Assets/Editor"
-        echo "Jules: Created folder: Assets/Editor" >> "$LOG_FILE" # if it were to create it
-        echo "Jules: Attempting to install package: com.unity.xr.interaction.toolkit@2.3.1" >> "$LOG_FILE"
-        echo "Jules: Attempting to install package: com.unity.xr.openxr@1.9.0" >> "$LOG_FILE"
-        echo "Jules: All XR packages installation requests sent. Now configuring XR Plug-in Management and OpenXR. Please wait for assembly compilation." >> "$LOG_FILE"
-        echo "Jules: Starting XR configuration..." >> "$LOG_FILE"
-        echo "Jules: Configuring XR for Windows, Mac & Linux..." >> "$LOG_FILE"
-        echo "Jules: Added OpenXR Loader to Windows, Mac & Linux XR General Settings." >> "$LOG_FILE"
-        echo "Jules: Configuring Windows, Mac & Linux OpenXR settings..." >> "$LOG_FILE"
-        echo "Jules: Enabled OpenXR feature: Oculus Touch Controller Profile (ID: com.unity.openxr.features.oculustouchcontroller) for Standalone." >> "$LOG_FILE"
-        echo "Jules: Enabled OpenXR feature: Meta Quest Support (ID: com.unity.openxr.features.metarequestsupport) for Standalone." >> "$LOG_FILE"
-        echo "Jules: Enabled OpenXR feature: HP Reverb G2 Controller Profile (ID: com.unity.openxr.features.hp_reverb_g2_controller) for Standalone." >> "$LOG_FILE"
-        echo "Jules: Configuring XR for Android..." >> "$LOG_FILE"
-        echo "Jules: Added OpenXR Loader to Android XR General Settings." >> "$LOG_FILE"
-        echo "Jules: Configuring Android OpenXR settings..." >> "$LOG_FILE"
-        echo "Jules: Enabled OpenXR feature: Oculus Touch Controller Profile (ID: com.unity.openxr.features.oculustouchcontroller) for Android." >> "$LOG_FILE"
-        echo "Jules: Enabled OpenXR feature: Meta Quest Support (ID: com.unity.openxr.features.metarequestsupport) for Android." >> "$LOG_FILE"
-        echo "Jules: Enabled OpenXR feature: HP Reverb G2 Controller Profile (ID: com.unity.openxr.features.hp_reverb_g2_controller) for Android." >> "$LOG_FILE"
-        echo "Jules: XR configuration complete. Project ready for VR development." >> "$LOG_FILE"
-        echo "Jules: Creating basic VR scene elements..." >> "$LOG_FILE"
-        # Simulate scene creation/opening
-        mkdir -p "$PROJECT_PATH/Assets/Scenes"
-        echo "Jules: Created new scene at: Assets/Scenes/SampleScene.unity" >> "$LOG_FILE" # This will create a zero byte file.
-        touch "$PROJECT_PATH/Assets/Scenes/SampleScene.unity"
 
-        echo "Jules: Found and removing default Main Camera." >> "$LOG_FILE" # Simulating it finds one
-        echo "Jules: Added XR Interaction Manager." >> "$LOG_FILE"
-        echo "Jules: Added Left Hand Controller with XRRayInteractor." >> "$LOG_FILE"
-        echo "Jules: Added Right Hand Controller with XRDirectInteractor." >> "$LOG_FILE"
-        echo "Jules: Basic VR scene elements created and scene saved." >> "$LOG_FILE"
-        echo "SetupVRProject completed successfully by dummy script." >> "$LOG_FILE"
-    elif [ "$METHOD_NAME" == "JulesBuildAutomation.PerformAlphaTestBuild" ]; then
-        echo "Jules: Starting Alpha Test Build..." >> "$LOG_FILE"
-        # Simulate finding the scene
-        SCENE_PATH="$PROJECT_PATH/Assets/Scenes/SampleScene.unity"
-        if [ ! -f "$SCENE_PATH" ]; then
-            # This case should ideally not happen if SetupVRProject ran correctly
-            echo "Jules: Scene 'Assets/Scenes/SampleScene.unity' not found for build. Please ensure it exists." >> "$LOG_FILE"
-            exit 1 # Simulate build failure
-        fi
-        echo "Jules: Building for Windows Standalone (Alpha Test)..." >> "$LOG_FILE"
-        mkdir -p "$PROJECT_PATH/Builds/AlphaTest/Windows"
-        echo "Dummy Build Output for Windows" > "$PROJECT_PATH/Builds/AlphaTest/Windows/RubeGoldbergVR.exe"
-        echo "Jules: Windows Alpha Test Build succeeded: 12345 bytes at Builds/AlphaTest/Windows/RubeGoldbergVR.exe" >> "$LOG_FILE"
+# Simulate project creation if -createProject was passed
+if [ "$CREATE_PROJECT_FLAG" = true ] && [ -n "$PROJECT_PATH" ]; then
+  echo "Simulating project creation at $PROJECT_PATH with version $UNITY_VERSION_ARG..." >> "$LOG_FILE"
+  mkdir -p "$PROJECT_PATH"
+  mkdir -p "$PROJECT_PATH/Assets"
+  mkdir -p "$PROJECT_PATH/ProjectSettings"
+  mkdir -p "$PROJECT_PATH/Logs" # Ensure Logs directory is created within the project
+  touch "$PROJECT_PATH/ProjectSettings/ProjectSettings.asset"
+  echo "Unity project structure simulated at '$PROJECT_PATH'." >> "$LOG_FILE"
+fi
 
-        echo "Jules: Building for Android (Alpha Test for Quest/VR)..." >> "$LOG_FILE"
-        mkdir -p "$PROJECT_PATH/Builds/AlphaTest/Android"
-        echo "Dummy Build Output for Android" > "$PROJECT_PATH/Builds/AlphaTest/Android/RubeGoldbergVR.apk"
-        echo "Jules: Android Alpha Test Build succeeded: 67890 bytes at Builds/AlphaTest/Android/RubeGoldbergVR.apk" >> "$LOG_FILE"
-        echo "Jules: All Alpha Test Builds completed successfully." >> "$LOG_FILE"
-        echo "PerformAlphaTestBuild completed successfully by dummy script." >> "$LOG_FILE"
+# Simulate script deployment (assuming it's copied to Assets/Editor already by Python)
+# This part is more about acknowledging the structure Unity would expect.
+if [ -n "$PROJECT_PATH" ]; then
+    EDITOR_DIR="$PROJECT_PATH/Assets/Editor"
+    mkdir -p "$EDITOR_DIR"
+    # The Python script is responsible for copying JulesBuildAutomation.cs.
+    # This dummy script can just acknowledge its expected presence if needed for logs.
+    if [ -f "$EDITOR_DIR/JulesBuildAutomation.cs" ]; then
+        echo "JulesBuildAutomation.cs found in $EDITOR_DIR." >> "$LOG_FILE"
     else
-        echo "Dummy Unity: Unknown method $METHOD_NAME" >> "$LOG_FILE"
-        exit 1 # Simulate error for unknown method
+        echo "JulesBuildAutomation.cs NOT found in $EDITOR_DIR (this might be okay if it's not deployed yet)." >> "$LOG_FILE"
     fi
 fi
 
-# Simulate a short delay like a real Unity process might have
-sleep 1
-echo "Dummy Unity Editor finished." >> "$LOG_FILE"
-exit 0
+
+# Simulate -executeMethod calls
+if [ -n "$EXECUTE_METHOD" ]; then
+  echo "Simulating Unity Editor executing method: $EXECUTE_METHOD on project: $PROJECT_PATH" >> "$LOG_FILE"
+
+  # Common directories that might be created or expected by the C# script
+  SCENES_DIR="$PROJECT_PATH/Assets/Scenes"
+  PREFABS_DIR="$PROJECT_PATH/Assets/RubeGoldbergPrefabs"
+
+  if [ "$EXECUTE_METHOD" == "JulesBuildAutomation.SetupVRProject" ]; then
+    echo "Simulating JulesBuildAutomation.SetupVRProject execution..." >> "$LOG_FILE"
+    mkdir -p "$PROJECT_PATH/Assets/Editor" # Ensure Editor folder
+    echo "Simulated XR package installation requests (logged)." >> "$LOG_FILE"
+    echo "Simulated XR configuration (logged)." >> "$LOG_FILE"
+    echo "SetupVRProject simulation finished." >> "$LOG_FILE"
+
+  elif [ "$EXECUTE_METHOD" == "JulesBuildAutomation.SetupRubeGoldbergGame" ]; then
+    echo "Simulating JulesBuildAutomation.SetupRubeGoldbergGame execution..." >> "$LOG_FILE"
+
+    # Simulate scene creation/opening
+    mkdir -p "$SCENES_DIR"
+    touch "$SCENES_DIR/SampleScene.unity"
+    echo "Simulated creation/opening of SampleScene.unity in $SCENES_DIR" >> "$LOG_FILE"
+
+    # Simulate basic VR scene elements (logging)
+    echo "Simulated creation of XR Origin, Main Camera, Controllers, Ground Plane." >> "$LOG_FILE"
+
+    # Simulate interactable physics objects (logging)
+    echo "Simulated adding of Interactable_Cube, Interactable_Sphere, Interactable_Cylinder." >> "$LOG_FILE"
+
+    # Simulate Rube Goldberg prefab creation
+    mkdir -p "$PREFABS_DIR"
+    touch "$PREFABS_DIR/Ramp.prefab"
+    touch "$PREFABS_DIR/Lever.prefab"
+    touch "$PREFABS_DIR/Domino.prefab"
+    echo "Simulated creation of Rube Goldberg prefabs in $PREFABS_DIR." >> "$LOG_FILE"
+    echo "SetupRubeGoldbergGame simulation finished." >> "$LOG_FILE"
+
+  elif [ "$EXECUTE_METHOD" == "JulesBuildAutomation.PerformAlphaTestBuild" ]; then
+    echo "Simulating JulesBuildAutomation.PerformAlphaTestBuild execution..." >> "$LOG_FILE"
+    mkdir -p "$PROJECT_PATH/Builds/AlphaTest/Windows"
+    mkdir -p "$PROJECT_PATH/Builds/AlphaTest/Android"
+    touch "$PROJECT_PATH/Builds/AlphaTest/Windows/RubeGoldbergVR.exe" # Dummy exe
+    touch "$PROJECT_PATH/Builds/AlphaTest/Android/RubeGoldbergVR.apk" # Dummy apk
+    echo "Simulated Alpha Test builds for Windows and Android." >> "$LOG_FILE"
+    echo "PerformAlphaTestBuild simulation finished." >> "$LOG_FILE"
+  else
+    echo "Unknown method to execute: $EXECUTE_METHOD" >> "$LOG_FILE"
+  fi
+fi
+
+echo "Dummy Unity Editor finished operations." >> "$LOG_FILE"
+exit 0 # Important to exit with 0 for success
