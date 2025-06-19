@@ -123,6 +123,43 @@ if [ $EXECUTE_METHOD_ARG_INDEX -ne -1 ] && [ $EXECUTE_METHOD_ARG_INDEX -le $# ];
         echo "Jules: Android Alpha Test Build succeeded: 67890 bytes at Builds/AlphaTest/Android/RubeGoldbergVR.apk" >> "$LOG_FILE"
         echo "Jules: All Alpha Test Builds completed successfully." >> "$LOG_FILE"
         echo "PerformAlphaTestBuild completed successfully by dummy script." >> "$LOG_FILE"
+    elif [ "$METHOD_NAME" == "JulesBuildAutomation.SetupRubeGoldbergGame" ]; then
+        echo "Jules: Starting Rube Goldberg Game Setup..." >> "$LOG_FILE"
+        # Simulate CreateBasicVRSceneElements
+        echo "Jules: Creating basic VR scene elements..." >> "$LOG_FILE"
+        mkdir -p "$PROJECT_PATH/Assets/Scenes"
+        touch "$PROJECT_PATH/Assets/Scenes/SampleScene.unity" # Simulate scene creation
+        echo "Jules: Created new scene at: Assets/Scenes/SampleScene.unity" >> "$LOG_FILE"
+        echo "Jules: Found and removing default Main Camera." >> "$LOG_FILE"
+        echo "Jules: Added XR Interaction Manager." >> "$LOG_FILE"
+        echo "Jules: Added Left Hand Controller with XRRayInteractor." >> "$LOG_FILE"
+        echo "Jules: Added Right Hand Controller with XRDirectInteractor." >> "$LOG_FILE"
+        echo "Jules: Basic VR scene elements created and scene saved." >> "$LOG_FILE"
+
+        # Simulate AddInteractablePhysicsObjects
+        echo "Jules: Adding interactable physics objects..." >> "$LOG_FILE"
+        echo "Jules: Added Interactable_Cube." >> "$LOG_FILE"
+        echo "Jules: Added Interactable_Sphere." >> "$LOG_FILE"
+        echo "Jules: Added Interactable_Cylinder." >> "$LOG_FILE"
+        echo "Jules: Interactable physics objects added to the scene." >> "$LOG_FILE"
+
+        # Simulate CreateRubeGoldbergPrefabs
+        echo "Jules: Creating Rube Goldberg prefabs..." >> "$LOG_FILE"
+        mkdir -p "$PROJECT_PATH/Assets/RubeGoldbergPrefabs"
+        # Simulate creation of dummy prefab files
+        touch "$PROJECT_PATH/Assets/RubeGoldbergPrefabs/Ramp.prefab"
+        touch "$PROJECT_PATH/Assets/RubeGoldbergPrefabs/Lever.prefab"
+        touch "$PROJECT_PATH/Assets/RubeGoldbergPrefabs/Domino.prefab"
+        echo "Jules: Created folder: Assets/RubeGoldbergPrefabs" >> "$LOG_FILE"
+        echo "Jules: Created Ramp prefab at Assets/RubeGoldbergPrefabs/Ramp.prefab." >> "$LOG_FILE"
+        echo "Jules: Added kinematic Rigidbody to Pivot." >> "$LOG_FILE"
+        echo "Jules: Configured HingeJoint on Arm, connected to Pivot." >> "$LOG_FILE"
+        echo "Jules: Created Lever prefab at Assets/RubeGoldbergPrefabs/Lever.prefab." >> "$LOG_FILE"
+        echo "Jules: Created Domino prefab at Assets/RubeGoldbergPrefabs/Domino.prefab." >> "$LOG_FILE"
+        echo "Jules: All Rube Goldberg prefabs created." >> "$LOG_FILE"
+
+        echo "JulesBuildAutomation.SetupRubeGoldbergGame completed successfully by dummy script." >> "$LOG_FILE"
+        # EditorApplication.Exit(0) is called in C#, so simulate successful exit
     else
         echo "Dummy Unity: Unknown method $METHOD_NAME" >> "$LOG_FILE"
         exit 1 # Simulate error for unknown method
