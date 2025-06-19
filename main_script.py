@@ -639,7 +639,7 @@ setup_game_command = [
     "-projectPath",
     project_path,
     "-executeMethod",
-    "JulesBuildAutomation.SetupRubeGoldbergGame",
+    "JulesBuildAutomation.SetupVRProject",
     "-logFile",
     os.path.join(project_path, "Logs", "unity_setup_game_log.txt")
 ]
